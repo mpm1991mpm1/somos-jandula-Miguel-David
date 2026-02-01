@@ -1,5 +1,7 @@
 package es.iesjandula.reaktor.firebase_server.config;
 
+import java.util.Arrays;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -14,7 +16,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class CORSConfig implements WebMvcConfigurer
 {
 	/** URL permitida de CORS */
-	@Value("${reaktor.urlCors}")
+	@Value("#{'${reaktor.urlCors}'.split(',')}")
 	private String[] urlCors;
 	
 	/**
@@ -23,8 +25,12 @@ public class CORSConfig implements WebMvcConfigurer
 	@Override
 	public void addCorsMappings(CorsRegistry registry)
 	{
+		String[] cleanedOrigins = Arrays.stream(this.urlCors)
+										.map(String::trim)
+										.toArray(String[]::new);
+
 		registry.addMapping("/**")
-				.allowedOrigins(urlCors)
+				.allowedOrigins(cleanedOrigins)
 				.allowedMethods("GET","POST","PUT","DELETE")
 				.allowedHeaders("*");
 	}

@@ -62,6 +62,7 @@ import StatisticsView from '@/views/statistics/StatisticsView.vue';
 import EventsSchoolPage from '@/views/events/EventsSchoolPage.vue';
 
 import NetworkScannerView from '@/views/network/NetworkScannerView.vue';
+import NetworkAdminView from '@/views/network/NetworkAdminView.vue';
 
 const routes = [
   {
@@ -385,6 +386,14 @@ const routes = [
         name: 'NetworkScanner',
         meta: {
           role: 'PROFESOR'
+        },
+      },
+      {
+        path: '/network/admin',
+        component: NetworkAdminView,
+        name: 'NetworkAdmin',
+        meta: {
+          role: 'ADMINISTRADOR'
         },
       },
       {
