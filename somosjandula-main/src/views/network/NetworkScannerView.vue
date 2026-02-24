@@ -10,36 +10,30 @@
     </div>
 
     <div class="container">
-      <h1>📡 Monitorización de Redes</h1>
-
-      <div class="controls">
-        <button @click="cargarDatos" class="btn-refresh" :disabled="cargando">🔄 Actualizar ahora</button>
-        <p>Última actualización: {{ ultimaActualizacion }}</p>
+      <div class="header-row">
+        <h1>📡 Monitorización de Redes</h1>
+        <div class="controls">
+          <button @click="cargarDatos" class="btn-refresh" :disabled="cargando">🔄 Actualizar ahora</button>
+          <p>Última actualización global: {{ ultimaActualizacion }}</p>
+        </div>
       </div>
 
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Red (SSID)</th>
-            <th>Estado</th>
-            <th>Fecha Reporte</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="registro in historial" :key="registro.id">
-            <td><strong>{{ registro.ssid }}</strong></td>
+      <div v-if="historial.length === 0" class="empty-state">
+        No hay registros aún.
+      </div>
 
-            <td :class="getEstadoClass(registro.estado)">
-              {{ registro.estado }}
-            </td>
-
-            <td>{{ formatearFecha(registro.fechaReporte) }}</td>
-          </tr>
-          <tr v-if="historial.length === 0">
-            <td colspan="3">No hay registros aún.</td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-else class="cards-grid">
+        <div v-for="registro in historial" :key="registro.id" class="network-card" :class="getEstadoClass(registro.estado)">
+          <div class="card-header">
+            <div class="ssid">{{ registro.ssid }}</div>
+            <div class="estado">{{ registro.estado }}</div>
+          </div>
+          <div class="card-body">
+            <div class="label">Última actualización</div>
+            <div class="value">{{ formatearFecha(registro.fechaReporte) }}</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -82,9 +76,9 @@ const cargarDatos = async () => {
 };
 
 const getEstadoClass = (estado: string) => {
-  if (estado === 'Conectado') return 'status-ok';
-  if (estado === 'Fallo de Auth') return 'status-warn';
-  return 'status-error';
+  if (estado === 'Conectado') return 'card-ok';
+  if (estado === 'Fallo de Auth') return 'card-warn';
+  return 'card-error';
 };
 
 const formatearFecha = (fecha?: string) => {
@@ -108,6 +102,8 @@ onBeforeUnmount(() => {
 <style scoped>
 .network-page {
   padding: 10px 0 20px 0;
+  min-height: 100vh;
+  background: #f6f7fb;
 }
 
 .tabs {
@@ -136,20 +132,28 @@ onBeforeUnmount(() => {
 
 h1 {
   color: #2c3e50;
-  text-align: center;
+  margin: 0;
 }
 
 .container {
-  padding: 20px;
-  max-width: 900px;
+  padding: 20px 24px 30px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
 }
 
 .controls {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -168,39 +172,97 @@ h1 {
   cursor: not-allowed;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
+.empty-state {
+  padding: 24px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px dashed #d7dbe7;
+  text-align: center;
+  color: #6b7280;
+  font-weight: 600;
 }
 
-.data-table th,
-.data-table td {
-  border: 1px solid #ddd;
-  padding: 12px;
-  text-align: left;
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
 }
 
-.data-table th {
-  background-color: #f2f2f2;
+.network-card {
+  border-radius: 16px;
+  padding: 18px 20px;
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 140px;
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.08);
 }
 
-.status-ok {
-  color: green;
-  font-weight: bold;
-  background-color: #e6fffa;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.status-warn {
-  color: orange;
-  font-weight: bold;
-  background-color: #fffaf0;
+.ssid {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
 }
 
-.status-error {
-  color: red;
-  font-weight: bold;
-  background-color: #fff5f5;
+.estado {
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+}
+
+.card-body .label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.card-body .value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.card-ok {
+  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  border-color: #a7f3d0;
+}
+
+.card-ok .estado {
+  background: #10b981;
+  color: #fff;
+}
+
+.card-warn {
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border-color: #fed7aa;
+}
+
+.card-warn .estado {
+  background: #f59e0b;
+  color: #fff;
+}
+
+.card-error {
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border-color: #fecaca;
+}
+
+.card-error .estado {
+  background: #ef4444;
+  color: #fff;
 }
 </style>
 
