@@ -148,6 +148,7 @@
             <span class="sem-dot door-off" :class="{ inactive: wifiPlantStatus('baja')?.cls !== 'door-off' }"></span>
           </div>
           <div class="wifi-status-estado">{{ wifiPlantStatus('baja')?.estado }}</div>
+          <div class="wifi-status-updated">Últ. actualización: {{ wifiPlantLastUpdateText('baja') }}</div>
         </div>
         <div
           v-for="id in zonasBaja"
@@ -177,6 +178,7 @@
             <span class="sem-dot door-off" :class="{ inactive: wifiPlantStatus('primera')?.cls !== 'door-off' }"></span>
           </div>
           <div class="wifi-status-estado">{{ wifiPlantStatus('primera')?.estado }}</div>
+          <div class="wifi-status-updated">Últ. actualización: {{ wifiPlantLastUpdateText('primera') }}</div>
         </div>
         <div
           v-for="id in zonasPrimera"
@@ -206,6 +208,7 @@
             <span class="sem-dot door-off" :class="{ inactive: wifiPlantStatus('segunda')?.cls !== 'door-off' }"></span>
           </div>
           <div class="wifi-status-estado">{{ wifiPlantStatus('segunda')?.estado }}</div>
+          <div class="wifi-status-updated">Últ. actualización: {{ wifiPlantLastUpdateText('segunda') }}</div>
         </div>
         <div
           v-for="id in zonasSegunda"
@@ -322,6 +325,7 @@ const dispositivos = ref<VistaPajaroResponseDto | null>(null)
 const loadingRedes = ref(false)
 const redesEstadoActual = ref<EstadoRedRegistro[]>([])
 let redesRefreshInterval: number | null = null
+const redesLastFetchAt = ref<Date | null>(null)
 
 const normalizarClave = (input: string) =>
   (input ?? '')
@@ -463,6 +467,30 @@ const wifiStatusByPlant = computed<Record<Planta, PlantWifiStatus | null>>(() =>
 }))
 
 const wifiPlantStatus = (p: Planta) => wifiStatusByPlant.value[p]
+
+const formatFechaHora = (isoOrDate?: string | Date | null): string =>
+{
+  if (!isoOrDate) return '-'
+  const d = (isoOrDate instanceof Date) ? isoOrDate : new Date(isoOrDate)
+  if (Number.isNaN(d.getTime())) return '-'
+
+  const fecha = d.toLocaleDateString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit' })
+  const hora = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return `${fecha} ${hora}`
+}
+
+const wifiPlantLastUpdateText = (p: Planta): string =>
+{
+  const st = wifiPlantStatus(p)
+  if (!st) return '-'
+
+  // Busca el registro original para obtener fechaReporte
+  const reg = redesEstadoActual.value.find(r => normalizarClave(r.ssid) === normalizarClave(st.ssid))
+  if (reg?.fechaReporte) return formatFechaHora(reg.fechaReporte)
+
+  // Fallback: hora del último fetch
+  return formatFechaHora(redesLastFetchAt.value)
+}
 
 // Override de prueba (solo DEV): asigna SSIDs a planta para poder validar el indicador por planta
 const DEV_SSID_PLANT_OVERRIDE: Record<string, Planta> =
@@ -811,6 +839,7 @@ onMounted(async () => {
     loadingRedes.value = true
     try {
       redesEstadoActual.value = (await obtenerEstadoActual()) ?? []
+      redesLastFetchAt.value = new Date()
     } catch (e) {
       console.error('Error cargando estado de redes:', e)
     } finally {
@@ -1059,6 +1088,13 @@ button:hover {
 .wifi-status-estado {
   font-size: 12px;
   font-weight: 800;
+}
+
+.wifi-status-updated {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.85;
 }
 
 .zona {
