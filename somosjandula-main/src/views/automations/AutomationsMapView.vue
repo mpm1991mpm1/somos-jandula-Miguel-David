@@ -139,6 +139,16 @@
     <div class="contenedor">
       <!-- PLANTA BAJA -->
       <div v-show="planta === 'baja'" id="planta-baja" class="caja-mapa" :style="mapStyle(plantaBajaUrl)">
+        <div v-if="wifiPlantStatus('baja')" class="wifi-status-box wifi-status-box--bottom-center">
+          <div class="wifi-status-title">Red:</div>
+          <div class="wifi-status-ssid">{{ wifiPlantStatus('baja')?.ssid }}</div>
+          <div class="wifi-semaforo">
+            <span class="sem-dot door-on" :class="{ inactive: wifiPlantStatus('baja')?.cls !== 'door-on' }"></span>
+            <span class="sem-dot door-undef" :class="{ inactive: wifiPlantStatus('baja')?.cls !== 'door-undef' }"></span>
+            <span class="sem-dot door-off" :class="{ inactive: wifiPlantStatus('baja')?.cls !== 'door-off' }"></span>
+          </div>
+          <div class="wifi-status-estado">{{ wifiPlantStatus('baja')?.estado }}</div>
+        </div>
         <div
           v-for="id in zonasBaja"
           :key="id"
@@ -158,6 +168,16 @@
 
       <!-- PLANTA PRIMERA -->
       <div v-show="planta === 'primera'" id="planta-primera" class="caja-mapa" :style="mapStyle(plantaPrimeraUrl)">
+        <div v-if="wifiPlantStatus('primera')" class="wifi-status-box wifi-status-box--top-center">
+          <div class="wifi-status-title">Red:</div>
+          <div class="wifi-status-ssid">{{ wifiPlantStatus('primera')?.ssid }}</div>
+          <div class="wifi-semaforo">
+            <span class="sem-dot door-on" :class="{ inactive: wifiPlantStatus('primera')?.cls !== 'door-on' }"></span>
+            <span class="sem-dot door-undef" :class="{ inactive: wifiPlantStatus('primera')?.cls !== 'door-undef' }"></span>
+            <span class="sem-dot door-off" :class="{ inactive: wifiPlantStatus('primera')?.cls !== 'door-off' }"></span>
+          </div>
+          <div class="wifi-status-estado">{{ wifiPlantStatus('primera')?.estado }}</div>
+        </div>
         <div
           v-for="id in zonasPrimera"
           :key="id"
@@ -177,6 +197,16 @@
 
       <!-- PLANTA SEGUNDA -->
       <div v-show="planta === 'segunda'" id="planta-segunda" class="caja-mapa" :style="mapStyle(plantaSegundaUrl)">
+        <div v-if="wifiPlantStatus('segunda')" class="wifi-status-box wifi-status-box--top-center">
+          <div class="wifi-status-title">Red:</div>
+          <div class="wifi-status-ssid">{{ wifiPlantStatus('segunda')?.ssid }}</div>
+          <div class="wifi-semaforo">
+            <span class="sem-dot door-on" :class="{ inactive: wifiPlantStatus('segunda')?.cls !== 'door-on' }"></span>
+            <span class="sem-dot door-undef" :class="{ inactive: wifiPlantStatus('segunda')?.cls !== 'door-undef' }"></span>
+            <span class="sem-dot door-off" :class="{ inactive: wifiPlantStatus('segunda')?.cls !== 'door-off' }"></span>
+          </div>
+          <div class="wifi-status-estado">{{ wifiPlantStatus('segunda')?.estado }}</div>
+        </div>
         <div
           v-for="id in zonasSegunda"
           :key="id"
@@ -200,6 +230,7 @@
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount, onMounted } from 'vue'
 import { obtenerDispositivos, } from '@/services/automations'
+import { obtenerEstadoActual, type EstadoRedRegistro } from '@/services/network'
 import {
   obtenerCursosAcademicos,
   obtenerEspaciosFijo,
@@ -286,6 +317,29 @@ const loadingDispositivos = ref(false)
 const dispositivos = ref<VistaPajaroResponseDto | null>(null)
 
 // ------------------------------
+// REDES (estado WiFi por SSID)
+// ------------------------------
+const loadingRedes = ref(false)
+const redesEstadoActual = ref<EstadoRedRegistro[]>([])
+let redesRefreshInterval: number | null = null
+
+const normalizarClave = (input: string) =>
+  (input ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+const redesEstadoPorSsid = computed<Record<string, EstadoRedRegistro>>(() => {
+  const map: Record<string, EstadoRedRegistro> = {}
+  for (const r of redesEstadoActual.value) {
+    const k = normalizarClave(r.ssid)
+    if (k) map[k] = r
+  }
+  return map
+})
+
+// ------------------------------
 // NORMALIZACIÓN
 // ------------------------------
 const zoneIdToAulaNombre = (zoneId: string): string => {
@@ -356,6 +410,97 @@ const doorDotState = (zoneId: string): DoorStateClass =>
   return 'door-undef' // indefinido u otros estados
 }
 
+// CIRCULITO: estado red (WiFi)
+const wifiEstadoToDotClass = (estado: string | undefined | null): DoorStateClass => {
+  const e = normalizarClave(estado ?? '')
+  if (e === 'conectado' || e.includes('conect')) return 'door-on'
+  if (e === 'fallo de auth' || e === 'fallo auth' || e.includes('auth')) return 'door-undef'
+  if (e === 'sin senal' || e === 'sin señal' || e.includes('sin') && e.includes('sen')) return 'door-off'
+  return 'door-undef'
+}
+
+const dotSeverity = (cls: DoorStateClass): number => {
+  if (cls === 'door-off') return 3
+  if (cls === 'door-undef') return 2
+  if (cls === 'door-on') return 1
+  return 0
+}
+
+const wifiGlobalDotState = computed<DoorStateClass>(() => {
+  let worst: DoorStateClass = null
+  for (const r of redesEstadoActual.value) {
+    const cls = wifiEstadoToDotClass(r.estado)
+    if (dotSeverity(cls) > dotSeverity(worst)) worst = cls
+  }
+  return worst
+})
+
+type PlantWifiStatus = { ssid: string; estado: string; cls: DoorStateClass }
+
+const calcPlantWifiStatus = (p: Planta): PlantWifiStatus | null => {
+  const candidates = redesEstadoActual.value.filter((r) => inferPlantFromSsid(r.ssid) === p)
+  const list = candidates.length > 0 ? candidates : redesEstadoActual.value
+  if (list.length === 0) return null
+
+  let chosen = list[0]
+  let chosenCls = wifiEstadoToDotClass(chosen.estado)
+
+  for (const r of list) {
+    const cls = wifiEstadoToDotClass(r.estado)
+    if (dotSeverity(cls) > dotSeverity(chosenCls)) {
+      chosen = r
+      chosenCls = cls
+    }
+  }
+
+  return { ssid: chosen.ssid, estado: chosen.estado, cls: chosenCls }
+}
+
+const wifiStatusByPlant = computed<Record<Planta, PlantWifiStatus | null>>(() => ({
+  baja: calcPlantWifiStatus('baja'),
+  primera: calcPlantWifiStatus('primera'),
+  segunda: calcPlantWifiStatus('segunda')
+}))
+
+const wifiPlantStatus = (p: Planta) => wifiStatusByPlant.value[p]
+
+// Override de prueba (solo DEV): asigna SSIDs a planta para poder validar el indicador por planta
+const DEV_SSID_PLANT_OVERRIDE: Record<string, Planta> =
+  (import.meta as any)?.env?.DEV
+    ? {
+        andared: 'baja'
+      }
+    : {}
+
+const inferPlantFromSsid = (ssid: string): Planta | null => {
+  const s = normalizarClave(ssid)
+  if (!s) return null
+
+  const override = DEV_SSID_PLANT_OVERRIDE[s]
+  if (override) return override
+
+  // Señales explícitas por texto
+  if (s.includes('baja') || s.includes('planta baja') || s.includes('p baja') || s.includes('pb')) return 'baja'
+  if (s.includes('primera') || s.includes('planta 1') || s.includes('planta1') || s.includes('p1')) return 'primera'
+  if (s.includes('segunda') || s.includes('planta 2') || s.includes('planta2') || s.includes('p2')) return 'segunda'
+
+  // Señales por nomenclatura tipo Aula 0.xx / aula0-xx
+  const m = s.match(/\baula\s*(0|1|2)[\.-]/i)
+  if (m?.[1] === '0') return 'baja'
+  if (m?.[1] === '1') return 'primera'
+  if (m?.[1] === '2') return 'segunda'
+
+  const m2 = s.match(/\baula(0|1|2)-/i)
+  if (m2?.[1] === '0') return 'baja'
+  if (m2?.[1] === '1') return 'primera'
+  if (m2?.[1] === '2') return 'segunda'
+
+  return null
+}
+
+// Si una planta no tiene redes identificables, el estado mostrado será el global (peor)
+// gracias al fallback en calcPlantWifiStatus.
+
 // ------------------------------
 // ESPACIOS -> etiquetas
 // ------------------------------
@@ -384,7 +529,9 @@ const normalizarEspacioNombreAZoneId = (nombre: string): string => {
   if (normalized === 'aseos (f)' || normalized === 'aseos f') return 'aseos-f'
   if (normalized === 'gimnasio') return 'gimnasio'
   if (normalized === 'pista de padel' || normalized === 'pista pádel' || normalized === 'pista padel') return 'pista-padel'
-  if (normalized === 'Aula TIC') return 'aula1-10'
+  if (normalized === 'aula tic') return 'aula1-10'
+  if (normalized === 'audiovisuales') return 'aula2-10'
+  if (normalized === 'convivencia') return 'aula2-21'
   return ''
 }
 
@@ -658,10 +805,26 @@ onMounted(async () => {
   } finally {
     loadingDispositivos.value = false
   }
+
+  // Estado de redes (WiFi)
+  const cargarEstadoRedes = async () => {
+    loadingRedes.value = true
+    try {
+      redesEstadoActual.value = (await obtenerEstadoActual()) ?? []
+    } catch (e) {
+      console.error('Error cargando estado de redes:', e)
+    } finally {
+      loadingRedes.value = false
+    }
+  }
+
+  await cargarEstadoRedes()
+  redesRefreshInterval = window.setInterval(cargarEstadoRedes, 20000)
 })
 
 onBeforeUnmount(() => {
   if (rotationTimer !== null) window.clearInterval(rotationTimer)
+  if (redesRefreshInterval !== null) window.clearInterval(redesRefreshInterval)
 })
 </script>
 
@@ -825,6 +988,77 @@ button:hover {
   background-repeat: no-repeat;
   background-position: top left;
   background-size: 100% 100%;
+}
+
+/* Cuadro WiFi por planta */
+.wifi-status-box {
+  position: absolute;
+  z-index: 3;
+  background: var(--panel-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-width: 170px;
+}
+
+.wifi-status-box--top-center {
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.wifi-status-box--bottom-center {
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.wifi-status-title {
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.wifi-status-ssid {
+  font-size: 13px;
+  font-weight: 900;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+.wifi-semaforo {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.sem-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.25);
+}
+
+:global(.dark) .sem-dot {
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  .sem-dot {
+    border-color: rgba(255, 255, 255, 0.55);
+  }
+}
+
+.inactive {
+  opacity: 0.22;
+}
+
+.wifi-status-estado {
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .zona {
