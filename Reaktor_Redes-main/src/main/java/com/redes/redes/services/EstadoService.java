@@ -3,7 +3,9 @@ package com.redes.redes.services;
 import com.redes.redes.dto.EstadoEntradaDTO;
 import com.redes.redes.dto.EstadoSalidaDTO;
 import com.redes.redes.models.HistorialEstado;
+import com.redes.redes.models.Red;
 import com.redes.redes.repositories.EstadoRepository;
+import com.redes.redes.repositories.RedRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +21,9 @@ public class EstadoService {
     @Autowired
     EstadoRepository repository;
 
+    @Autowired
+    RedRepository redRepository;
+
     public void guardarEstado(EstadoEntradaDTO estadoRecibido) {
         if (estadoRecibido == null || estadoRecibido.getNombreRed() == null || estadoRecibido.getNombreRed().isBlank()) {
             throw new IllegalArgumentException("El nombre de red es obligatorio");
@@ -28,7 +33,12 @@ public class EstadoService {
             throw new IllegalArgumentException("El estado es obligatorio");
         }
 
-        HistorialEstado estado = new HistorialEstado(estadoRecibido.getNombreRed().trim(), estadoRecibido.getEstado());
+        String ssid = estadoRecibido.getNombreRed().trim();
+
+        Red red = redRepository.findBySsidIgnoreCase(ssid)
+            .orElseThrow(() -> new IllegalArgumentException("No existe una red registrada con ese nombre"));
+
+        HistorialEstado estado = new HistorialEstado(red, estadoRecibido.getEstado());
 
         repository.save(estado);
 
@@ -38,12 +48,15 @@ public class EstadoService {
         Map<String, HistorialEstado> ultimosPorRed = new LinkedHashMap<>();
 
         repository.findAllByOrderByFechaReporteDescIdDesc()
-            .forEach(estado -> ultimosPorRed.putIfAbsent(estado.getSsid(), estado));
+            .forEach(estado -> {
+                String ssid = estado.getRed() != null ? estado.getRed().getSsid() : estado.getSsid();
+                ultimosPorRed.putIfAbsent(ssid, estado);
+            });
 
         return ultimosPorRed.values().stream()
-            .sorted(Comparator.comparing(HistorialEstado::getSsid))
+            .sorted(Comparator.comparing(estado -> estado.getRed() != null ? estado.getRed().getSsid() : estado.getSsid()))
                 .map(estado -> new EstadoSalidaDTO(
-                        estado.getSsid(),
+                        estado.getRed() != null ? estado.getRed().getSsid() : estado.getSsid(),
                         estado.getEstado(),
                         estado.getFechaReporte()
                 ))

@@ -1,6 +1,10 @@
 package com.redes.redes.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "redes")
@@ -21,6 +25,10 @@ public class Red {
 
     @Column
     private String seguridad;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "red", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<HistorialEstado> historialEstados = new ArrayList<>();
 
     public Red() {
     }
@@ -70,5 +78,13 @@ public class Red {
 
     public void setSeguridad(String seguridad) {
         this.seguridad = seguridad;
+    }
+
+    public List<HistorialEstado> getHistorialEstados() {
+        return historialEstados;
+    }
+
+    public void setHistorialEstados(List<HistorialEstado> historialEstados) {
+        this.historialEstados = historialEstados;
     }
 }

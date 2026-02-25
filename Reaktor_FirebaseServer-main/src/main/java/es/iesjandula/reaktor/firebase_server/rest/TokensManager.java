@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 
 import es.iesjandula.reaktor.base.utils.BaseConstants;
@@ -108,6 +109,22 @@ public class TokensManager
 	        return ResponseEntity.ok().body(tokenJwt) ;
 
         }
+		catch (FirebaseAuthException firebaseAuthException)
+		{
+			String message = firebaseAuthException.getMessage() ;
+
+			if (message != null && message.contains("incorrect \"aud\" (audience) claim"))
+			{
+				message = "El token de Google pertenece a un proyecto Firebase distinto al configurado en FirebaseServer. " +
+						  "Asegúrate de usar en el backend una cuenta de servicio del mismo projectId que el frontend." ;
+			}
+
+			FirebaseServerException firebaseServerException =
+					new FirebaseServerException(Constants.ERR_USER_AUTHORIZATION, message, firebaseAuthException) ;
+
+			log.error("Error validando token de Firebase en obtenerTokenPersonalizadoUsuario", firebaseAuthException) ;
+			return ResponseEntity.status(401).body(firebaseServerException.getBodyExceptionMessage()) ;
+		}
         catch (FirebaseServerException firebaseServerServerException)
         {
 			return ResponseEntity.status(500).body(firebaseServerServerException.getBodyExceptionMessage()) ;

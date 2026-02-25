@@ -2,10 +2,12 @@ package com.redes.redes.services;
 
 import com.redes.redes.dto.RedesEntradaDTO;
 import com.redes.redes.models.Red;
+import com.redes.redes.repositories.EstadoRepository;
 import com.redes.redes.repositories.RedRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -15,6 +17,9 @@ public class RedesService {
 
 	@Autowired
     RedRepository repository;
+
+	@Autowired
+	EstadoRepository estadoRepository;
 
 	public void registrarRed(RedesEntradaDTO redesDto) {
 		if (redesDto == null || redesDto.getNombre() == null || redesDto.getNombre().isBlank()) {
@@ -36,12 +41,20 @@ public class RedesService {
 		return repository.findAll();
 	}
 
+	@Transactional
 	public void eliminarRed(Long id) {
-		if (!repository.existsById(id)) {
-			throw new NoSuchElementException("Red no encontrada");
+		Red red = repository.findById(id)
+				.orElseThrow(() -> new NoSuchElementException("Red no encontrada"));
+
+		estadoRepository.deleteByRed_Id(red.getId());
+
+		String ssid = red.getSsid();
+
+		if (ssid != null && !ssid.isBlank()) {
+			estadoRepository.deleteBySsidIgnoreCase(ssid.trim());
 		}
 
-		repository.deleteById(id);
+		repository.delete(red);
 	}
 
 

@@ -1,6 +1,9 @@
 package com.redes.redes.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.redes.redes.dto.Estados;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import jakarta.persistence.*;
 import java.sql.Timestamp;
 
@@ -22,10 +25,17 @@ public class HistorialEstado {
     @Column(name = "fecha_reporte", nullable = false)
     private Timestamp fechaReporte;
 
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "red_id", foreignKey = @ForeignKey(name = "fk_historial_estado_red"))
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private Red red;
+
     public HistorialEstado() {}
 
-    public HistorialEstado(String ssid, Estados estado) {
-        this.ssid = ssid;
+    public HistorialEstado(Red red, Estados estado) {
+        this.red = red;
+        this.ssid = red.getSsid();
         this.estado = estado;
         this.fechaReporte = new Timestamp(System.currentTimeMillis());
     }
@@ -60,5 +70,13 @@ public class HistorialEstado {
 
     public void setFechaReporte(Timestamp fechaReporte) {
         this.fechaReporte = fechaReporte;
+    }
+
+    public Red getRed() {
+        return red;
+    }
+
+    public void setRed(Red red) {
+        this.red = red;
     }
 }

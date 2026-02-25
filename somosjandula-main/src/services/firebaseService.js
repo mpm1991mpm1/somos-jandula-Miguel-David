@@ -210,9 +210,20 @@ async function obtenerTokenJwt(toastMessage, toastColor, isToastOpen)
     // Intentamos extraer el mensaje de error del servidor
     let errorMessage = 'El usuario no está dado de alta. ¿Estás seguro que lo hiciste con el dominio g.educaand.es?' ;
 
-    // Intentamos obtener el cuerpo de la respuesta (suponiendo que es JSON)
-    const errorData = await response.json();
-    errorMessage = errorData.message || 'El usuario no está dado de alta. ¿Estás seguro que lo hiciste con el dominio g.educaand.es?';
+    const responseText = await response.text() ;
+
+    if (responseText)
+    {
+      try
+      {
+        const errorData = JSON.parse(responseText) ;
+        errorMessage = errorData.message || errorMessage ;
+      }
+      catch
+      {
+        errorMessage = responseText ;
+      }
+    }
 
     // Crear toast y lanzar excepción
     crearToast(toastMessage, toastColor, isToastOpen, "danger", errorMessage) ;

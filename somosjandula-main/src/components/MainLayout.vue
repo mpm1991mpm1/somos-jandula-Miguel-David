@@ -93,7 +93,7 @@
               Estadísticas
               <ion-icon slot="end" name="bar-chart"></ion-icon>
             </ion-item>
-            <ion-item button @click="navigateAndCloseMenu('/network/scanner')">
+            <ion-item v-if="mostrarEscaneoRedes" button @click="navigateAndCloseMenu('/network/scanner')">
               Escaneo de redes
               <ion-icon slot="end" name="search"></ion-icon>
             </ion-item>
@@ -261,6 +261,7 @@ export default defineComponent({
     const showTooltip = ref(false);
     const mostrarAdmin = ref(false);
     const mostrarAdminFirebase = ref(false);
+    const mostrarEscaneoRedes = ref(false);
     const mostrarTimetableAdmin = ref(false);
     const mostrarTimetableTeachers = ref(false);
     const mostrarSchoolManager = ref(false);
@@ -473,6 +474,7 @@ export default defineComponent({
 
         mostrarAdmin.value = rolesMenu.mostrarDireccion;
         mostrarAdminFirebase.value = rolesMenu.mostrarAdmin;
+        mostrarEscaneoRedes.value = rolesMenu.mostrarAdmin;
         mostrarTimetableAdmin.value = rolesMenu.mostrarDireccion;
         mostrarTimetableTeachers.value = rolesMenu.mostrarDireccion;
         mostrarSchoolManager.value = rolesMenu.mostrarDireccion;
@@ -495,6 +497,7 @@ export default defineComponent({
       navigateAndCloseMenu,
       mostrarAdmin,
       mostrarAdminFirebase,
+      mostrarEscaneoRedes,
       mostrarSchoolManager,
       mostrarTimetableAdmin,
       mostrarTimetableTeachers,

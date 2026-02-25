@@ -9,4 +9,8 @@ public interface EstadoRepository extends JpaRepository<HistorialEstado, Long> {
 
     List<HistorialEstado> findAllByOrderByFechaReporteDescIdDesc();
 
+    long deleteByRed_Id(Long redId);
+
+    long deleteBySsidIgnoreCase(String ssid);
+
 }

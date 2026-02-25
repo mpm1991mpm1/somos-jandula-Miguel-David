@@ -6,8 +6,20 @@ const parseError = async (response) => {
     return text || 'Error en la petición';
 };
 
+const normalizarEstado = (estado) => {
+    if (estado === 'FalloAuth') {
+        return 'Fallo de Auth';
+    }
+
+    if (estado === 'SinSeñal') {
+        return 'Sin Señal';
+    }
+
+    return estado;
+};
+
 export const obtenerEstadoActual = async () => {
-    const response = await fetch(`${redesApiUrl}/estado-actual`, {
+    const response = await fetch(`${redesApiUrl}/registros-redes`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -20,7 +32,18 @@ export const obtenerEstadoActual = async () => {
         throw new Error(text || 'Error al obtener el estado actual');
     }
 
-    return await response.json();
+    const data = await response.json();
+
+    if (!Array.isArray(data)) {
+        return [];
+    }
+
+    return data.map((item) => ({
+        id: item.id,
+        ssid: item.ssid ?? item.nombreRed ?? '',
+        estado: normalizarEstado(item.estado),
+        fechaReporte: item.fechaReporte ?? item.fechaHora ?? null,
+    }));
 };
 
 export const obtenerRedesConfiguradas = async () => {

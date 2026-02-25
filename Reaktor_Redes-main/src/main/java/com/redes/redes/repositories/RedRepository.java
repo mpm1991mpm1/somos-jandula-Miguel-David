@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface RedRepository extends JpaRepository<Red, Long> {
     Optional<Red> findBySsid(String ssid);
+
+    Optional<Red> findBySsidIgnoreCase(String ssid);
 }

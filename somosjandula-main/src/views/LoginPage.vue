@@ -47,6 +47,7 @@ import { logoGoogle as googleIcon, car as carIcon } from 'ionicons/icons';
 import { signInWithPopup, signOut } from "firebase/auth";
 import { crearToast } from '@/utils/toast.js';
 import { obtenerRolesUsuario } from '@/services/firebaseService.js';
+import { SESSION_JWT_TOKEN } from '@/utils/constants';
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { firebaseConfig } from '@/environment/firebaseConfig';
@@ -81,11 +82,31 @@ const loginWithGoogle = async () =>
     // Obtenemos el token JWT
     const user      = result.user ;
 
+    // Limpiamos cualquier JWT propio previo para forzar refresco de roles
+    sessionStorage.removeItem(SESSION_JWT_TOKEN) ;
+
     // Validamos el usuario en el sistema
     const userRoles = await obtenerRolesUsuario(toastMessage, toastColor, isToastOpen) ;
 
     // Verificamos si hay una redirección pendiente (guardada en el router)
-    const redirectPath = router.currentRoute.value.query.redirect || '/printers/print'; // 'Dashboard' es la ruta por defecto
+    let redirectPath = router.currentRoute.value.query.redirect ;
+
+    if (!redirectPath)
+    {
+      if (userRoles.includes('ADMINISTRADOR'))
+      {
+        redirectPath = '/network/admin' ;
+      }
+      else if (userRoles.includes('DIRECCION'))
+      {
+        redirectPath = '/bookings/admin' ;
+      }
+      else
+      {
+        redirectPath = '/printers/print' ;
+      }
+    }
+
     router.push({ path: redirectPath });
   }
   catch (error)

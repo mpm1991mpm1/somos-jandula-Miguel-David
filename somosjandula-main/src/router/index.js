@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from '@ionic/vue-router';
 import { ref } from 'vue';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { obtenerRolesUsuario } from '@/services/firebaseService';
+import { SESSION_JWT_TOKEN } from '@/utils/constants';
 
 import LoginPage from '@/views/LoginPage.vue';
 import MainLayout from '@/components/MainLayout.vue';
@@ -385,7 +386,7 @@ const routes = [
         component: NetworkScannerView,
         name: 'NetworkScanner',
         meta: {
-          role: 'PROFESOR'
+          role: 'ADMINISTRADOR'
         },
       },
       {
@@ -440,8 +441,16 @@ router.beforeEach(async (to, from, next) => {
       const requiredRole = to.meta.role;
 
       // Si la ruta requiere un rol específico y el usuario no lo tiene, redirige a Login o muestra un error.
-      if (requiredRole && !userRoles.includes(requiredRole)) {
-        return next({ name: 'AccessDenied' });
+      if (requiredRole && !hasRequiredRole(userRoles, requiredRole)) {
+        sessionStorage.removeItem(SESSION_JWT_TOKEN);
+
+        const refreshedRoles = await obtenerRolesUsuario(toastMessage, toastColor, isToastOpen);
+
+        if (!hasRequiredRole(refreshedRoles, requiredRole)) {
+          return next({ name: 'AccessDenied' });
+        }
+
+        return next();
       }
       else {
         return next(); // Permite el acceso a la ruta solicitada
@@ -465,6 +474,31 @@ function waitForAuthReady(auth) {
       resolve(user);
     });
   });
+}
+
+function hasRequiredRole(userRoles, requiredRole)
+{
+  if (!requiredRole)
+  {
+    return true ;
+  }
+
+  if (userRoles.includes(requiredRole))
+  {
+    return true ;
+  }
+
+  if (requiredRole === 'PROFESOR')
+  {
+    return userRoles.includes('DIRECCION') || userRoles.includes('ADMINISTRADOR') ;
+  }
+
+  if (requiredRole === 'DIRECCION')
+  {
+    return userRoles.includes('ADMINISTRADOR') ;
+  }
+
+  return false ;
 }
 
 

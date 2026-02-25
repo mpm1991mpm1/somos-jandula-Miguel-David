@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(authorize -> authorize
+                    .requestMatchers("/registros-redes", "/configuracion-redes", "/configuracion-redes/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().hasRole("PROFESOR")
                 )
