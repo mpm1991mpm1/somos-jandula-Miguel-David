@@ -139,16 +139,13 @@
     <div class="contenedor">
       <!-- PLANTA BAJA -->
       <div v-show="planta === 'baja'" id="planta-baja" class="caja-mapa" :style="mapStyle(plantaBajaUrl)">
-        <div v-if="wifiPlantStatus('baja')" class="wifi-status-box wifi-status-box--bottom-center">
-          <div class="wifi-status-title">Red:</div>
-          <div class="wifi-status-ssid">{{ wifiPlantStatus('baja')?.ssid }}</div>
-          <div class="wifi-semaforo">
-            <span class="sem-dot door-on" :class="{ inactive: wifiPlantStatus('baja')?.cls !== 'door-on' }"></span>
-            <span class="sem-dot door-undef" :class="{ inactive: wifiPlantStatus('baja')?.cls !== 'door-undef' }"></span>
-            <span class="sem-dot door-off" :class="{ inactive: wifiPlantStatus('baja')?.cls !== 'door-off' }"></span>
+        <div v-if="wifiLegendItems.length > 0" class="wifi-legend-box wifi-legend-box--top-center-baja">
+          <div class="wifi-legend-list">
+            <div v-for="r in wifiLegendItems" :key="r.key" class="wifi-legend-row">
+              <span class="sem-dot" :class="r.cls"></span>
+              <span class="wifi-legend-ssid">{{ r.ssid }}</span>
+            </div>
           </div>
-          <div class="wifi-status-estado">{{ wifiPlantStatus('baja')?.estado }}</div>
-          <div class="wifi-status-updated">Últ. actualización: {{ wifiPlantLastUpdateText('baja') }}</div>
         </div>
         <div
           v-for="id in zonasBaja"
@@ -169,16 +166,13 @@
 
       <!-- PLANTA PRIMERA -->
       <div v-show="planta === 'primera'" id="planta-primera" class="caja-mapa" :style="mapStyle(plantaPrimeraUrl)">
-        <div v-if="wifiPlantStatus('primera')" class="wifi-status-box wifi-status-box--top-center">
-          <div class="wifi-status-title">Red:</div>
-          <div class="wifi-status-ssid">{{ wifiPlantStatus('primera')?.ssid }}</div>
-          <div class="wifi-semaforo">
-            <span class="sem-dot door-on" :class="{ inactive: wifiPlantStatus('primera')?.cls !== 'door-on' }"></span>
-            <span class="sem-dot door-undef" :class="{ inactive: wifiPlantStatus('primera')?.cls !== 'door-undef' }"></span>
-            <span class="sem-dot door-off" :class="{ inactive: wifiPlantStatus('primera')?.cls !== 'door-off' }"></span>
+        <div v-if="wifiLegendItems.length > 0" class="wifi-legend-box wifi-legend-box--top-center">
+          <div class="wifi-legend-list">
+            <div v-for="r in wifiLegendItems" :key="r.key" class="wifi-legend-row">
+              <span class="sem-dot" :class="r.cls"></span>
+              <span class="wifi-legend-ssid">{{ r.ssid }}</span>
+            </div>
           </div>
-          <div class="wifi-status-estado">{{ wifiPlantStatus('primera')?.estado }}</div>
-          <div class="wifi-status-updated">Últ. actualización: {{ wifiPlantLastUpdateText('primera') }}</div>
         </div>
         <div
           v-for="id in zonasPrimera"
@@ -199,16 +193,13 @@
 
       <!-- PLANTA SEGUNDA -->
       <div v-show="planta === 'segunda'" id="planta-segunda" class="caja-mapa" :style="mapStyle(plantaSegundaUrl)">
-        <div v-if="wifiPlantStatus('segunda')" class="wifi-status-box wifi-status-box--top-center">
-          <div class="wifi-status-title">Red:</div>
-          <div class="wifi-status-ssid">{{ wifiPlantStatus('segunda')?.ssid }}</div>
-          <div class="wifi-semaforo">
-            <span class="sem-dot door-on" :class="{ inactive: wifiPlantStatus('segunda')?.cls !== 'door-on' }"></span>
-            <span class="sem-dot door-undef" :class="{ inactive: wifiPlantStatus('segunda')?.cls !== 'door-undef' }"></span>
-            <span class="sem-dot door-off" :class="{ inactive: wifiPlantStatus('segunda')?.cls !== 'door-off' }"></span>
+        <div v-if="wifiLegendItems.length > 0" class="wifi-legend-box wifi-legend-box--top-center">
+          <div class="wifi-legend-list">
+            <div v-for="r in wifiLegendItems" :key="r.key" class="wifi-legend-row">
+              <span class="sem-dot" :class="r.cls"></span>
+              <span class="wifi-legend-ssid">{{ r.ssid }}</span>
+            </div>
           </div>
-          <div class="wifi-status-estado">{{ wifiPlantStatus('segunda')?.estado }}</div>
-          <div class="wifi-status-updated">Últ. actualización: {{ wifiPlantLastUpdateText('segunda') }}</div>
         </div>
         <div
           v-for="id in zonasSegunda"
@@ -422,6 +413,16 @@ const wifiEstadoToDotClass = (estado: string | undefined | null): DoorStateClass
   if (e === 'sin senal' || e === 'sin señal' || e.includes('sin') && e.includes('sen')) return 'door-off'
   return 'door-undef'
 }
+
+const wifiLegendItems = computed(() =>
+  redesEstadoActual.value
+    .map((r) => ({
+      key: normalizarClave(r.ssid) || r.ssid,
+      ssid: r.ssid,
+      cls: wifiEstadoToDotClass(r.estado)
+    }))
+    .sort((a, b) => a.ssid.localeCompare(b.ssid, undefined, { sensitivity: 'base' }))
+)
 
 const dotSeverity = (cls: DoorStateClass): number => {
   if (cls === 'door-off') return 3
@@ -1029,6 +1030,58 @@ button:hover {
   border-radius: 8px;
   padding: 8px 10px;
   min-width: 170px;
+}
+
+/* Leyenda WiFi (lista de SSIDs + dot por estado) */
+.wifi-legend-box {
+  position: absolute;
+  z-index: 3;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  min-width: 170px;
+  max-width: 240px;
+}
+
+.wifi-legend-box--top-center {
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.wifi-legend-box--bottom-center {
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Planta baja: arriba centrado pero un poco a la izquierda */
+.wifi-legend-box--top-center-baja {
+  top: 10px;
+  left: 46%;
+  transform: translateX(-50%);
+}
+
+.wifi-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.wifi-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wifi-legend-ssid {
+  font-size: 15px;
+  font-weight: 900;
+  word-break: break-word;
 }
 
 .wifi-status-box--top-center {

@@ -5,7 +5,7 @@
         Monitorización de redes
       </button>
       <button class="tab-button" :class="{ active: activeTab === 'admin' }" @click="goTab('admin')">
-        Añadir redes
+        Administración de redes
       </button>
     </div>
 
@@ -14,8 +14,35 @@
         <h1>📡 Monitorización de Redes</h1>
         <div class="controls">
           <button @click="cargarDatos" class="btn-refresh" :disabled="cargando">🔄 Actualizar ahora</button>
+          <button @click="cambiarTiempoMonitorizacion" class="btn-interval" :disabled="cargando">
+            ⏱ Tiempo monitorización ({{ refreshSeconds }}s)
+          </button>
           <p>Última actualización global: {{ ultimaActualizacion }}</p>
         </div>
+      </div>
+
+      <div v-if="showIntervalSettings" class="interval-settings">
+        <div class="interval-settings-row">
+          <label class="interval-label" for="interval-seconds">Actualizar cada (segundos)</label>
+          <input
+            id="interval-seconds"
+            class="interval-input"
+            type="number"
+            min="1"
+            step="1"
+            v-model.number="pendingRefreshSeconds"
+            :disabled="cargando"
+          />
+
+          <button class="btn-save" type="button" @click="guardarTiempoMonitorizacion" :disabled="cargando">
+            Guardar
+          </button>
+          <button class="btn-cancel" type="button" @click="cancelarTiempoMonitorizacion" :disabled="cargando">
+            Cancelar
+          </button>
+        </div>
+
+        <p v-if="intervalError" class="interval-error">{{ intervalError }}</p>
       </div>
 
       <div v-if="historial.length === 0" class="empty-state">
@@ -50,6 +77,11 @@ const historial = ref([] as Array<{ id?: number; ssid: string; estado: string; f
 const ultimaActualizacion = ref('-');
 const cargando = ref(false);
 
+const refreshSeconds = ref(20);
+const showIntervalSettings = ref(false);
+const pendingRefreshSeconds = ref<number>(20);
+const intervalError = ref('');
+
 const goTab = (value: 'monitor' | 'admin') => {
   if (value === 'admin') {
     router.push('/network/admin');
@@ -75,6 +107,43 @@ const cargarDatos = async () => {
   }
 };
 
+const aplicarIntervalo = (seconds: number) => {
+  const nextSeconds = Number.isFinite(seconds) ? Math.floor(seconds) : 20;
+  refreshSeconds.value = nextSeconds > 0 ? nextSeconds : 20;
+
+  if (refreshInterval) {
+    clearInterval(refreshInterval);
+  }
+
+  refreshInterval = window.setInterval(cargarDatos, refreshSeconds.value * 1000);
+};
+
+const cambiarTiempoMonitorizacion = () => {
+  intervalError.value = '';
+  pendingRefreshSeconds.value = refreshSeconds.value;
+  showIntervalSettings.value = true;
+};
+
+const cancelarTiempoMonitorizacion = () => {
+  intervalError.value = '';
+  showIntervalSettings.value = false;
+  pendingRefreshSeconds.value = refreshSeconds.value;
+};
+
+const guardarTiempoMonitorizacion = async () => {
+  intervalError.value = '';
+
+  const seconds = Number(pendingRefreshSeconds.value);
+  if (!Number.isFinite(seconds) || Math.floor(seconds) !== seconds || seconds <= 0) {
+    intervalError.value = 'Introduce un número entero válido (mínimo 1 segundo).';
+    return;
+  }
+
+  aplicarIntervalo(seconds);
+  showIntervalSettings.value = false;
+  await cargarDatos();
+};
+
 const getEstadoClass = (estado: string) => {
   if (estado === 'Conectado') return 'card-ok';
   if (estado === 'Fallo de Auth') return 'card-warn';
@@ -89,7 +158,7 @@ const formatearFecha = (fecha?: string) => {
 let refreshInterval: number | undefined;
 onMounted(async () => {
   await cargarDatos();
-  refreshInterval = window.setInterval(cargarDatos, 20000);
+  aplicarIntervalo(refreshSeconds.value);
 });
 
 onBeforeUnmount(() => {
@@ -167,9 +236,76 @@ h1 {
   border-radius: 5px;
 }
 
+.btn-interval {
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
 .btn-refresh:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.btn-interval:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.interval-settings {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #d7dbe7;
+  background: #fff;
+}
+
+.interval-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.interval-label {
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.interval-input {
+  width: 120px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d0d0;
+}
+
+.btn-save {
+  background-color: #42b983;
+  color: #fff;
+  border: none;
+  padding: 10px 18px;
+  cursor: pointer;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.btn-cancel {
+  background-color: #f7f7f7;
+  color: #2c3e50;
+  border: 1px solid #d0d0d0;
+  padding: 10px 18px;
+  cursor: pointer;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.interval-error {
+  margin: 10px 0 0;
+  color: #ef4444;
+  font-weight: 700;
 }
 
 .empty-state {
