@@ -8,10 +8,10 @@ public class EstadoSalidaDTO {
     private Estados estado;
     private Timestamp fechaHora;
 
-    public EstadoSalidaDTO(String nombreRed, Estados estado) {
+    public EstadoSalidaDTO(String nombreRed, Estados estado, Timestamp fechaHora) {
         this.nombreRed = nombreRed;
         this.estado = estado;
-        this.fechaHora = new Timestamp(System.currentTimeMillis());
+        this.fechaHora = fechaHora;
     }
 
     public EstadoSalidaDTO() {

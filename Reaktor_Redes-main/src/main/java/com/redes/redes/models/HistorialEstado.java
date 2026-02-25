@@ -1,5 +1,6 @@
 package com.redes.redes.models;
 
+import com.redes.redes.dto.Estados;
 import jakarta.persistence.*;
 import java.sql.Timestamp;
 
@@ -15,14 +16,15 @@ public class HistorialEstado {
     private String ssid;
 
     @Column(name = "estado", nullable = false)
-    private String estado;
+    @Enumerated(EnumType.STRING)
+    private Estados estado;
 
     @Column(name = "fecha_reporte", nullable = false)
     private Timestamp fechaReporte;
 
     public HistorialEstado() {}
 
-    public HistorialEstado(String ssid, String estado) {
+    public HistorialEstado(String ssid, Estados estado) {
         this.ssid = ssid;
         this.estado = estado;
         this.fechaReporte = new Timestamp(System.currentTimeMillis());
@@ -44,11 +46,11 @@ public class HistorialEstado {
         this.ssid = ssid;
     }
 
-    public String getEstado() {
+    public Estados getEstado() {
         return estado;
     }
 
-    public void setEstado(String estado) {
+    public void setEstado(Estados estado) {
         this.estado = estado;
     }
 
