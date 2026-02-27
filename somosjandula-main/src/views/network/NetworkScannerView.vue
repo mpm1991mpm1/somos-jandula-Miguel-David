@@ -15,7 +15,7 @@
         <div class="controls">
           <button @click="cargarDatos" class="btn-refresh" :disabled="cargando">🔄 Actualizar ahora</button>
           <button @click="cambiarTiempoMonitorizacion" class="btn-interval" :disabled="cargando">
-            ⏱ Tiempo monitorización ({{ refreshSeconds }}s)
+            ⏱ Tiempo monitorización ({{ refreshLabel }})
           </button>
           <p>Última actualización global: {{ ultimaActualizacion }}</p>
         </div>
@@ -23,14 +23,14 @@
 
       <div v-if="showIntervalSettings" class="interval-settings">
         <div class="interval-settings-row">
-          <label class="interval-label" for="interval-seconds">Actualizar cada (segundos)</label>
+          <label class="interval-label" for="interval-minutes">Actualizar cada (minutos)</label>
           <input
-            id="interval-seconds"
+            id="interval-minutes"
             class="interval-input"
             type="number"
             min="1"
             step="1"
-            v-model.number="pendingRefreshSeconds"
+            v-model.number="pendingRefreshMinutes"
             :disabled="cargando"
           />
 
@@ -66,9 +66,9 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { obtenerEstadoActual } from '@/services/network';
+import { guardarConfiguracionMonitorizacion, obtenerConfiguracionMonitorizacion, obtenerEstadoActual } from '@/services/network';
 
 const router = useRouter();
 const activeTab = ref('monitor');
@@ -77,9 +77,14 @@ const historial = ref([] as Array<{ id?: number; ssid: string; estado: string; f
 const ultimaActualizacion = ref('-');
 const cargando = ref(false);
 
-const refreshSeconds = ref(20);
+const DEFAULT_REFRESH_SECONDS = 20;
+
+const refreshMinutes = ref<number | null>(null);
+const refreshSeconds = computed(() => (refreshMinutes.value ? refreshMinutes.value * 60 : DEFAULT_REFRESH_SECONDS));
+const refreshLabel = computed(() => (refreshMinutes.value ? `${refreshMinutes.value}min` : `${DEFAULT_REFRESH_SECONDS}s`));
+
 const showIntervalSettings = ref(false);
-const pendingRefreshSeconds = ref<number>(20);
+const pendingRefreshMinutes = ref<number>(1);
 const intervalError = ref('');
 
 const goTab = (value: 'monitor' | 'admin') => {
@@ -108,40 +113,51 @@ const cargarDatos = async () => {
 };
 
 const aplicarIntervalo = (seconds: number) => {
-  const nextSeconds = Number.isFinite(seconds) ? Math.floor(seconds) : 20;
-  refreshSeconds.value = nextSeconds > 0 ? nextSeconds : 20;
-
+  const nextSeconds = Number.isFinite(seconds) ? Math.floor(seconds) : DEFAULT_REFRESH_SECONDS;
+  const clampedSeconds = nextSeconds > 0 ? nextSeconds : DEFAULT_REFRESH_SECONDS;
   if (refreshInterval) {
     clearInterval(refreshInterval);
   }
 
-  refreshInterval = window.setInterval(cargarDatos, refreshSeconds.value * 1000);
+  refreshInterval = window.setInterval(cargarDatos, clampedSeconds * 1000);
 };
 
 const cambiarTiempoMonitorizacion = () => {
   intervalError.value = '';
-  pendingRefreshSeconds.value = refreshSeconds.value;
+  pendingRefreshMinutes.value = refreshMinutes.value ?? 1;
   showIntervalSettings.value = true;
 };
 
 const cancelarTiempoMonitorizacion = () => {
   intervalError.value = '';
   showIntervalSettings.value = false;
-  pendingRefreshSeconds.value = refreshSeconds.value;
+  pendingRefreshMinutes.value = refreshMinutes.value ?? 1;
 };
 
 const guardarTiempoMonitorizacion = async () => {
   intervalError.value = '';
 
-  const seconds = Number(pendingRefreshSeconds.value);
-  if (!Number.isFinite(seconds) || Math.floor(seconds) !== seconds || seconds <= 0) {
-    intervalError.value = 'Introduce un número entero válido (mínimo 1 segundo).';
+  const minutes = Number(pendingRefreshMinutes.value);
+  if (!Number.isFinite(minutes) || Math.floor(minutes) !== minutes || minutes < 1) {
+    intervalError.value = 'Introduce un número entero válido (mínimo 1 minuto).';
     return;
   }
 
-  aplicarIntervalo(seconds);
-  showIntervalSettings.value = false;
-  await cargarDatos();
+  try {
+    cargando.value = true;
+    await guardarConfiguracionMonitorizacion(minutes);
+    refreshMinutes.value = minutes;
+    aplicarIntervalo(refreshSeconds.value);
+    showIntervalSettings.value = false;
+    await cargarDatos();
+  }
+  catch (error) {
+    console.error('Error guardando intervalo:', error);
+    intervalError.value = 'No se pudo guardar el intervalo en el servidor.';
+  }
+  finally {
+    cargando.value = false;
+  }
 };
 
 const getEstadoClass = (estado: string) => {
@@ -158,6 +174,18 @@ const formatearFecha = (fecha?: string) => {
 let refreshInterval: number | undefined;
 onMounted(async () => {
   await cargarDatos();
+
+  try {
+    const config = await obtenerConfiguracionMonitorizacion();
+    const minutes = config?.refreshMinutes;
+    if (typeof minutes === 'number' && Number.isFinite(minutes) && Math.floor(minutes) === minutes && minutes >= 1) {
+      refreshMinutes.value = minutes;
+    }
+  }
+  catch (error) {
+    console.warn('No se pudo cargar la configuración de monitorización; usando 20s por defecto.', error);
+  }
+
   aplicarIntervalo(refreshSeconds.value);
 });
 
@@ -333,6 +361,7 @@ h1 {
   gap: 12px;
   min-height: 140px;
   box-shadow: 0 8px 22px rgba(16, 24, 40, 0.08);
+  color: #f9fafb;
 }
 
 .card-header {
@@ -344,36 +373,36 @@ h1 {
 }
 
 .ssid {
-  font-size: 18px;
-  font-weight: 700;
-  color: #111827;
+  font-size: 24px;
+  font-weight: 800;
+  color: inherit;
 }
 
 .estado {
-  font-weight: 700;
-  padding: 6px 10px;
+  font-weight: 800;
+  padding: 8px 12px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 16px;
   letter-spacing: 0.2px;
 }
 
 .card-body .label {
-  font-size: 12px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: #6b7280;
+  color: rgba(249, 250, 251, 0.78);
   margin-bottom: 4px;
 }
 
 .card-body .value {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2937;
+  font-size: 18px;
+  font-weight: 700;
+  color: inherit;
 }
 
 .card-ok {
-  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-  border-color: #a7f3d0;
+  background-color: #064e3b;
+  border-color: #10b981;
 }
 
 .card-ok .estado {
@@ -382,8 +411,8 @@ h1 {
 }
 
 .card-warn {
-  background: linear-gradient(135deg, #fff7ed, #ffedd5);
-  border-color: #fed7aa;
+  background-color: #c2410c;
+  border-color: #f59e0b;
 }
 
 .card-warn .estado {
@@ -392,8 +421,8 @@ h1 {
 }
 
 .card-error {
-  background: linear-gradient(135deg, #fef2f2, #fee2e2);
-  border-color: #fecaca;
+  background-color: #991b1b;
+  border-color: #ef4444;
 }
 
 .card-error .estado {

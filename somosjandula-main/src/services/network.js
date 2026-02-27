@@ -97,3 +97,38 @@ export const eliminarRed = async (id) => {
 
     return await response.text();
 };
+
+export const obtenerConfiguracionMonitorizacion = async () => {
+    const response = await fetch(`${redesApiUrl}/monitorizacion-config`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    });
+
+    if (!response.ok) {
+        const text = await parseError(response);
+        console.error('Error al obtener configuración de monitorización:', response.status, text);
+        throw new Error(text || 'Error al obtener configuración de monitorización');
+    }
+
+    return await response.json();
+};
+
+export const guardarConfiguracionMonitorizacion = async (refreshMinutes) => {
+    const response = await fetch(`${redesApiUrl}/monitorizacion-config`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshMinutes }),
+    });
+
+    if (!response.ok) {
+        const text = await parseError(response);
+        console.error('Error al guardar configuración de monitorización:', response.status, text);
+        throw new Error(text || 'Error al guardar configuración de monitorización');
+    }
+
+    return await response.json();
+};

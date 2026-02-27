@@ -28,6 +28,11 @@ declare module '@/services/network' {
     seguridad: SeguridadRed;
   }
 
+  /** Configuración persistida del intervalo de monitorización */
+  export interface MonitorizacionConfig {
+    refreshMinutes: number | null;
+  }
+
   /*************************************************/
   /****************** Servicios *********************/
   /*************************************************/
@@ -39,4 +44,8 @@ declare module '@/services/network' {
   export function registrarRed(red: RedNueva): Promise<string>;
 
   export function eliminarRed(id: number | string): Promise<string>;
+
+  export function obtenerConfiguracionMonitorizacion(): Promise<MonitorizacionConfig>;
+
+  export function guardarConfiguracionMonitorizacion(refreshMinutes: number): Promise<MonitorizacionConfig>;
 }
